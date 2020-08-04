@@ -8,7 +8,7 @@ class dbworker:
         self.cursor = self.connection.cursor()
 
     def user_exists(self, user_id):
-        '''Проверка есть ли юзер в бд'''
+        ''' Проверка есть ли юзер в бд '''
         with self.connection:
             result = self.cursor.execute('SELECT * FROM `users` WHERE `telegram_id` = ?', (user_id,)).fetchall()
             return bool(len(result))
@@ -19,18 +19,18 @@ class dbworker:
     		return self.cursor.execute("INSERT INTO `users` (`telegram_username`, `telegram_id`) VALUES(?,?)", (telegram_username,telegram_id))
 
     def edit_sex(self,sex,telegram_id):
-    	'''добавление по рейтингу'''
+    	''' Изменения пола '''
     	with self.connection:
     		self.cursor.execute('UPDATE `users` SET `sex` = ? WHERE `telegram_id` = ?',(sex,telegram_id)) # True - мужчина, False - женщина
 
     def search(self,sex):
         ''' Поиск '''
         with self.connection:
-            if sex == True:
-                sex = False
+            if sex == 1:
+                sex = str(0)
             else:
-                sex = True
-            search = self.cursor.execute('SELECT `telegram_id` FROM `users` WHERE `sex` = ?',(sex)).fetchall()
+                sex = str(1)
+            search = self.cursor.execute('SELECT `telegram_id` FROM `users` WHERE `sex` = ? AND `search_status` = 1',(sex)).fetchall()
 
             return search
 
@@ -40,3 +40,7 @@ class dbworker:
 
             result = self.cursor.execute('SELECT `sex` FROM `users` WHERE `telegram_id` = ?',(telegram_id,)).fetchone()
             return result
+
+    def edit_search_status(self,telegram_id):
+        with self.connection:
+            self.cursor.execute('UPDATE `users` SET `search_status` = 1 WHERE `telegram_id` = ?',(telegram_id,))

@@ -87,16 +87,20 @@ class Chating(StatesGroup):
 	msg = State()
 
 @dp.message_handler(lambda message: message.text == 'Парня' or message.text == 'Девушку',state='*')
-async def chooce_sex(message : types.Message):
+async def chooce_sex(message : types.Message, state: FSMContext):
+    ''' Выбор пола для поиска '''
     if message.text == 'Парня':
         db.edit_sex(True,message.from_user.id)
     else:
         db.edit_sex(False,message.from_user.id)
-
-    all_users = db.search(db.get_info_user('sex',message.from_user.id))
-    print(all_users)
+    db.edit_search_status(message.from_user.id)
 
     await Chating.msg.set()
+
+    await state.update_data(all_users=db.search(db.get_info_user('sex',message.from_user.id)[0])[0][0])
+
+
+
 
 
 @dp.message_handler(state=Chating.msg)
@@ -105,13 +109,18 @@ async def chating(message : types.Message, state: FSMContext):
 
     user_data = await state.get_data()
 
-    await message.answer(user_data['msg'])
+    if message.from_user.id == 711557361:
+        await bot.send_message(user_data['all_users'],user_data['msg'])
+
+    elif message.from_user.id == user_data['all_users']:
+        await bot.send_message(711557361,user_data['msg'])
 
 
 
 #хендлер для команды назад
 @dp.message_handler(lambda message : message.text == 'Назад')
-async def back(message : types.Message):
+async def back(message : types.Message, state: FSMContext):
     await start(message)
+    await state.finish()
 
 executor.start_polling(dp, skip_updates=True)
