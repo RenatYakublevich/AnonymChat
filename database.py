@@ -26,21 +26,26 @@ class dbworker:
     def search(self,sex):
         ''' Поиск '''
         with self.connection:
-            if sex == 1:
-                sex = str(0)
-            else:
-                sex = str(1)
-            search = self.cursor.execute('SELECT `telegram_id` FROM `users` WHERE `sex` = ? AND `search_status` = 1',(sex)).fetchall()
+            search = self.cursor.execute('SELECT `telegram_id` FROM `queue` WHERE `sex` = ?',(str(sex))).fetchone()
 
             return search
 
-    def get_info_user(self,method,telegram_id):
+    def get_sex_user(self,telegram_id):
         ''' Получить информацию о пользователе по его айдишнику '''
         with self.connection:
 
             result = self.cursor.execute('SELECT `sex` FROM `users` WHERE `telegram_id` = ?',(telegram_id,)).fetchone()
             return result
 
-    def edit_search_status(self,telegram_id):
+    def insert_connect_with(self,telegram_id,sex):
         with self.connection:
-            self.cursor.execute('UPDATE `users` SET `search_status` = 1 WHERE `telegram_id` = ?',(telegram_id,))
+            if sex == 1:
+                sex = bool(0)
+            else:
+                sex = bool(1)
+            self.cursor.execute("INSERT INTO `queue` (`telegram_id`, `sex`) VALUES(?,?)", (telegram_id,sex))
+
+    def delete_from_queue(self, telegram_id):
+        ''' Функция удаляет из очереди '''
+        with self.connection:
+            self.cursor.execute('DELETE FROM `queue` WHERE `telegram_id` = ?',(telegram_id,))

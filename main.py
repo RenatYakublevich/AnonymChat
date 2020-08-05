@@ -40,6 +40,7 @@ async def start(message : types.Message):
 
     await bot.send_message(message.chat.id,'Привет!\n\nЭто Гомельский Анонимный чат для пожилых кролов....\nкхм шучу\n\n',reply_markup=mark_menu)
 
+
 @dp.message_handler(lambda message : message.text == 'О проекте🧑‍💻' or message.text == 'Все ссылки на нас' or message.text == '[ Для разработчиков ]',state='*')
 async def about_project(message : types.Message):
     if message.text == 'О проекте🧑‍💻':
@@ -76,7 +77,7 @@ async def search(message : types.Message):
 
     back = KeyboardButton('Назад')
 
-    sex_menu = ReplyKeyboardMarkup()
+    sex_menu = ReplyKeyboardMarkup(one_time_keyboard=True)
 
     sex_menu.add(male,wooman,back)
 
@@ -91,13 +92,26 @@ async def chooce_sex(message : types.Message, state: FSMContext):
     ''' Выбор пола для поиска '''
     if message.text == 'Парня':
         db.edit_sex(True,message.from_user.id)
+        db.insert_connect_with(message.from_user.id,True)
     else:
         db.edit_sex(False,message.from_user.id)
-    db.edit_search_status(message.from_user.id)
+        db.insert_connect_with(message.from_user.id,False)
 
+
+
+    await message.answer('Вы в очереди...')
+
+    while True:
+        await asyncio.sleep(2)
+        if db.search(db.get_sex_user(message.from_user.id)[0]) != None:
+            break
+
+    await message.answer('Диалог начался!')
     await Chating.msg.set()
+    await state.update_data(all_users=db.search(db.get_sex_user(message.from_user.id)[0])[0])
+    db.delete_from_queue(message.from_user.id)
 
-    await state.update_data(all_users=db.search(db.get_info_user('sex',message.from_user.id)[0])[0][0])
+
 
 
 
@@ -105,22 +119,41 @@ async def chooce_sex(message : types.Message, state: FSMContext):
 
 @dp.message_handler(state=Chating.msg)
 async def chating(message : types.Message, state: FSMContext):
+    ''' Функция где и происходить общения и обмен сообщениями '''
+
     await state.update_data(msg=message.text)
 
     user_data = await state.get_data()
 
-    if message.from_user.id == 711557361:
-        await bot.send_message(user_data['all_users'],user_data['msg'])
+    stop = KeyboardButton('❌Остановить диалог')
 
-    elif message.from_user.id == user_data['all_users']:
-        await bot.send_message(711557361,user_data['msg'])
+    next = KeyboardButton('Следующий диалог')
+
+    share_link = KeyboardButton('🏹Отправить ссылку на себя')
+
+    back = KeyboardButton('Назад')
+
+    menu_msg = ReplyKeyboardMarkup()
+
+    menu_msg.add(stop,next,share_link,back)
+
+    if user_data['msg'] == stop['text']:
+        await message.answer('Диалог закончен!')
+        await state.finish()
+
+    await bot.send_message(user_data['all_users'],user_data['msg'],reply_markup=menu_msg)
 
 
 
 #хендлер для команды назад
+@dp.message_handler(commands=['back'],state='*')
 @dp.message_handler(lambda message : message.text == 'Назад')
 async def back(message : types.Message, state: FSMContext):
+    ''' Функция для команды back '''
     await start(message)
     await state.finish()
 
-executor.start_polling(dp, skip_updates=True)
+
+if __name__ == '__main__':
+
+    executor.start_polling(dp, skip_updates=True)
