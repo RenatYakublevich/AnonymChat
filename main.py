@@ -12,6 +12,7 @@ from aiogram.types import ReplyKeyboardRemove,ReplyKeyboardMarkup, KeyboardButto
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+import aiogram.utils.exceptions
 
 #конфиг с настройками
 import config
@@ -83,7 +84,7 @@ async def search(message : types.Message):
 
     await message.answer('Выбери пол собеседника!\nКого вы ищите?)',reply_markup=sex_menu)
 
-
+#класс машины состояний
 class Chating(StatesGroup):
 	msg = State()
 
@@ -92,39 +93,12 @@ async def chooce_sex(message : types.Message, state: FSMContext):
     ''' Выбор пола для поиска '''
     if message.text == 'Парня':
         db.edit_sex(True,message.from_user.id)
-        db.insert_connect_with(message.from_user.id,True)
+        db.add_to_queue(message.from_user.id,True)
     else:
         db.edit_sex(False,message.from_user.id)
-        db.insert_connect_with(message.from_user.id,False)
+        db.add_to_queue(message.from_user.id,False)
 
-
-
-    await message.answer('Вы в очереди...')
-
-    while True:
-        await asyncio.sleep(2)
-        if db.search(db.get_sex_user(message.from_user.id)[0]) != None:
-            break
-
-    await message.answer('Диалог начался!')
-    await Chating.msg.set()
-    await state.update_data(all_users=db.search(db.get_sex_user(message.from_user.id)[0])[0])
-    db.delete_from_queue(message.from_user.id)
-
-
-
-
-
-
-
-@dp.message_handler(state=Chating.msg)
-async def chating(message : types.Message, state: FSMContext):
-    ''' Функция где и происходить общения и обмен сообщениями '''
-
-    await state.update_data(msg=message.text)
-
-    user_data = await state.get_data()
-
+    #кнопки
     stop = KeyboardButton('❌Остановить диалог')
 
     next = KeyboardButton('Следующий диалог')
@@ -137,11 +111,42 @@ async def chating(message : types.Message, state: FSMContext):
 
     menu_msg.add(stop,next,share_link,back)
 
-    if user_data['msg'] == stop['text']:
-        await message.answer('Диалог закончен!')
-        await state.finish()
 
-    await bot.send_message(user_data['all_users'],user_data['msg'],reply_markup=menu_msg)
+    await message.answer('Вы в очереди...')
+
+    while True:
+        await asyncio.sleep(2)
+        if db.search(db.get_sex_user(message.from_user.id)[0]) != None:
+            break
+
+    await message.answer('Диалог начался!',reply_markup=menu_msg)
+    await Chating.msg.set()
+    db.update_connect_with(db.search(db.get_sex_user(message.from_user.id)[0])[0],message.from_user.id)
+
+
+
+
+
+
+
+@dp.message_handler(state=Chating.msg)
+async def chating(message : types.Message, state: FSMContext):
+    ''' Функция где и происходить общения и обмен сообщениями '''
+    await state.update_data(msg=message.text)
+    db.delete_from_queue(message.from_user.id)
+    user_data = await state.get_data()
+
+    if user_data['msg'] == '❌Остановить диалог':
+        await bot.send_message(message.from_user.id,'Диалог закончился!')
+        await bot.send_message(db.select_connect_with_self(message.from_user.id)[0],'Диалог закончился!')
+        await state.finish()
+        db.update_connect_with(None,message.from_user.id)
+        db.update_connect_with(None,db.select_connect_with_self(message.from_user.id)[0])
+        return
+    try:
+        await bot.send_message(db.select_connect_with(message.from_user.id)[0],user_data['msg'])
+    except aiogram.utils.exceptions.ChatIdIsEmpty():
+        await state.finish()
 
 
 
@@ -153,7 +158,11 @@ async def back(message : types.Message, state: FSMContext):
     await start(message)
     await state.finish()
 
+#хендлер который срабатывает при непредсказуемом запросе юзера
+@dp.message_handler()
+async def end(message : types.Message):
+	'''Функция непредсказумогого ответа'''
+	await message.answer('Я не знаю, что с этим делать 😲\nЯ просто напомню, что есть команда /start и /help')
 
 if __name__ == '__main__':
-
     executor.start_polling(dp, skip_updates=True)

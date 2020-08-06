@@ -37,7 +37,8 @@ class dbworker:
             result = self.cursor.execute('SELECT `sex` FROM `users` WHERE `telegram_id` = ?',(telegram_id,)).fetchone()
             return result
 
-    def insert_connect_with(self,telegram_id,sex):
+    def add_to_queue(self,telegram_id,sex):
+        ''' Добавление в очередь '''
         with self.connection:
             if sex == 1:
                 sex = bool(0)
@@ -49,3 +50,17 @@ class dbworker:
         ''' Функция удаляет из очереди '''
         with self.connection:
             self.cursor.execute('DELETE FROM `queue` WHERE `telegram_id` = ?',(telegram_id,))
+
+    def update_connect_with(self,connect_with,telegram_id):
+        ''' Обновление с кем общается пользователь '''
+        with self.connection:
+            self.cursor.execute('UPDATE `users` SET `connect_with` = ? WHERE `telegram_id` = ?',(connect_with,telegram_id))
+
+    def select_connect_with(self,telegram_id):
+        with self.connection:
+            return self.cursor.execute('SELECT `connect_with` FROM `users` WHERE `telegram_id` = ?',(telegram_id,)).fetchone()
+
+    def select_connect_with_self(self, telegram_id):
+        ''' Функция для получения айдишника по айдишнику с кем общается человек '''
+        with self.connection:
+            return self.cursor.execute('SELECT `telegram_id` FROM `users` WHERE `connect_with` = ?',(telegram_id,)).fetchone()
