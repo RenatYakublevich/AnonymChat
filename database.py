@@ -57,6 +57,7 @@ class dbworker:
             self.cursor.execute('UPDATE `users` SET `connect_with` = ? WHERE `telegram_id` = ?',(connect_with,telegram_id))
 
     def select_connect_with(self,telegram_id):
+        ''' Функция для получения айдишника с кем общается человек '''
         with self.connection:
             return self.cursor.execute('SELECT `connect_with` FROM `users` WHERE `telegram_id` = ?',(telegram_id,)).fetchone()
 
@@ -64,3 +65,14 @@ class dbworker:
         ''' Функция для получения айдишника по айдишнику с кем общается человек '''
         with self.connection:
             return self.cursor.execute('SELECT `telegram_id` FROM `users` WHERE `connect_with` = ?',(telegram_id,)).fetchone()
+
+    def log_msg(self,telegram_id,msg):
+        ''' Функция которая логирует все сообщения юзеров друг другу '''
+        with self.connection:
+            self.cursor.execute('INSERT INTO `all_messages` (`sender`,`message`) VALUES (?,?)',(telegram_id,msg))
+
+    def queue_exists(self,telegram_id):
+        ''' Функция возвращает есть ли пользователь в очереди '''
+        with self.connection:
+            result = self.cursor.execute('SELECT * FROM `queue` WHERE `telegram_id` = ?', (telegram_id,)).fetchall()
+            return bool(len(result))
