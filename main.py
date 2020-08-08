@@ -119,23 +119,27 @@ async def chooce_sex(message : types.Message, state: FSMContext):
         menu_msg.add(stop,share_link,back)
 
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
             if db.search(db.get_sex_user(message.from_user.id)[0]) != None:
                 try:
                     db.update_connect_with(db.search(db.get_sex_user(message.from_user.id)[0])[0],message.from_user.id)
                     db.update_connect_with(message.from_user.id,db.search(db.get_sex_user(message.from_user.id)[0])[0])
                     break
-                    print(1)
                 except Exception as e:
                     print(e)
+                    print(1)
 
-        await bot.send_message(message.from_user.id,'Диалог начался!',reply_markup=menu_msg)
-        await bot.send_message(db.select_connect_with(message.from_user.id)[0],'Диалог начался!',reply_markup=menu_msg)
+        while True:
+            await asyncio.sleep(0.5)
+            if db.select_connect_with(message.from_user.id)[0] != None:
+                await Chating.msg.set()
+                await bot.send_message(message.from_user.id,'Диалог начался!',reply_markup=menu_msg)
+                break
 
-        await Chating.msg.set()
+
 
         db.delete_from_queue(message.from_user.id) #удаляем из очереди
-        db.delete_from_queue(db.search(db.get_sex_user(message.from_user.id)[0])[0])
+        #db.delete_from_queue(db.search(db.get_sex_user(message.from_user.id)[0])[0])
 
     except Exception as e:
         print(e)
@@ -149,6 +153,7 @@ async def chooce_sex(message : types.Message, state: FSMContext):
 async def chating(message : types.Message, state: FSMContext):
     ''' Функция где и происходить общения и обмен сообщениями '''
     try:
+
         await state.update_data(msg=message.text)
 
         user_data = await state.get_data()
@@ -162,7 +167,8 @@ async def chating(message : types.Message, state: FSMContext):
             return
         if user_data['msg'] == '🏹Отправить ссылку на себя':
             await bot.send_message(db.select_connect_with_self(message.from_user.id)[0],'@' + message.from_user.username)
-        await bot.send_message(db.select_connect_with(message.from_user.id)[0],user_data['msg']) #отправляем сообщения пользователя
+        else:
+            await bot.send_message(db.select_connect_with(message.from_user.id)[0],user_data['msg']) #отправляем сообщения пользователя
 
     except aiogram.utils.exceptions.ChatIdIsEmpty:
         print('Chat Id is Empty!')
@@ -175,8 +181,8 @@ async def chating(message : types.Message, state: FSMContext):
 
 
 #хендлер для команды назад
-@dp.message_handler(commands=['back'],state='*')
-@dp.message_handler(lambda message : message.text == 'Назад')
+@dp.message_handler(commands=['back'])
+@dp.message_handler(lambda message : message.text == 'Назад',state='*')
 async def back(message : types.Message, state: FSMContext):
     ''' Функция для команды back '''
     await state.finish()
