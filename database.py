@@ -31,9 +31,8 @@ class dbworker:
             return search
 
     def get_sex_user(self,telegram_id):
-        ''' Получить информацию о пользователе по его айдишнику '''
+        ''' Получить информацию о поле юзера по его айдишнику '''
         with self.connection:
-
             result = self.cursor.execute('SELECT `sex` FROM `users` WHERE `telegram_id` = ?',(telegram_id,)).fetchone()
             return result
 
@@ -76,3 +75,9 @@ class dbworker:
         with self.connection:
             result = self.cursor.execute('SELECT * FROM `queue` WHERE `telegram_id` = ?', (telegram_id,)).fetchall()
             return bool(len(result))
+
+    def count_user(self):
+        '''вывод количества юзеров'''
+        with self.connection:
+            result = self.cursor.execute('SELECT COUNT(*) FROM `users`').fetchone()
+            return result[0]

@@ -1,3 +1,4 @@
+import logging
 import asyncio
 
 #aiogram и всё утилиты для коректной работы с Telegram API
@@ -26,6 +27,20 @@ db = dbworker('db.db')
 #инициализируем бота
 bot = Bot(token=config.TOKEN)
 dp = Dispatcher(bot,storage=MemoryStorage())
+
+#логирование
+logging.basicConfig(filename="all_log.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
+warning_log = logging.getLogger("warning_log")
+warning_log.setLevel(logging.WARNING)
+
+fh = logging.FileHandler("warning_log.log")
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+
+
+warning_log.addHandler(fh)
+
 
 #хендлер команды /start
 @dp.message_handler(commands=['start'],state='*')
@@ -72,20 +87,23 @@ async def rules(message : types.Message):
 
 @dp.message_handler(lambda message: message.text == 'Начать поиск🔍',state='*')
 async def search(message : types.Message):
-    if(not db.user_exists(message.from_user.id)): #если пользователя с таким telegram id не найдено
-        db.add_user(message.from_user.username,message.from_user.id) #добавляем юзера в табличку дб
+    try:
+        if(not db.user_exists(message.from_user.id)): #если пользователя с таким telegram id не найдено
+            db.add_user(message.from_user.username,message.from_user.id) #добавляем юзера в табличку дб
 
-    male = KeyboardButton('Парня')
+        male = KeyboardButton('Парня')
 
-    wooman = KeyboardButton('Девушку')
+        wooman = KeyboardButton('Девушку')
 
-    back = KeyboardButton('Назад')
+        back = KeyboardButton('Назад')
 
-    sex_menu = ReplyKeyboardMarkup(one_time_keyboard=True)
+        sex_menu = ReplyKeyboardMarkup(one_time_keyboard=True)
 
-    sex_menu.add(male,wooman,back)
+        sex_menu.add(male,wooman,back)
 
-    await message.answer('Выбери пол собеседника!\nКого вы ищите?)',reply_markup=sex_menu)
+        await message.answer('Выбери пол собеседника!\nКого вы ищите?)',reply_markup=sex_menu)
+    except Exception as e:
+        warning_log.warning(e)
 
 #класс машины состояний
 class Chating(StatesGroup):
@@ -99,10 +117,12 @@ async def chooce_sex(message : types.Message, state: FSMContext):
             if message.text == 'Парня':
                 db.edit_sex(True,message.from_user.id)
                 db.add_to_queue(message.from_user.id,True)
-            else:
+            elif message.text == 'Девушку':
                 db.edit_sex(False,message.from_user.id)
                 db.add_to_queue(message.from_user.id,False)
-            await message.answer('Вы в очереди...')
+            else:
+                db.add_to_queue(message.from_user.id,db.get_sex_user(message.from_user.id)[0])
+            await message.answer('Ищем для вас человечка..')
 
         else:
             await message.answer('Вы уже в очереди!🤬')
@@ -112,71 +132,81 @@ async def chooce_sex(message : types.Message, state: FSMContext):
 
         share_link = KeyboardButton('🏹Отправить ссылку на себя')
 
-        back = KeyboardButton('Назад')
-
         menu_msg = ReplyKeyboardMarkup()
 
-        menu_msg.add(stop,share_link,back)
+        menu_msg.add(stop,share_link)
 
         while True:
             await asyncio.sleep(0.5)
-            if db.search(db.get_sex_user(message.from_user.id)[0]) != None:
+            if db.search(db.get_sex_user(message.from_user.id)[0]) != None: #если был найден подходящий юзер в очереди
                 try:
-                    db.update_connect_with(db.search(db.get_sex_user(message.from_user.id)[0])[0],message.from_user.id)
+                    db.update_connect_with(db.search(db.get_sex_user(message.from_user.id)[0])[0],message.from_user.id) #обновляем с кем общается юзер
                     db.update_connect_with(message.from_user.id,db.search(db.get_sex_user(message.from_user.id)[0])[0])
                     break
                 except Exception as e:
                     print(e)
-                    print(1)
 
         while True:
             await asyncio.sleep(0.5)
-            if db.select_connect_with(message.from_user.id)[0] != None:
-                await Chating.msg.set()
+            if db.select_connect_with(message.from_user.id)[0] != None: #если пользователь законектился
                 await bot.send_message(message.from_user.id,'Диалог начался!',reply_markup=menu_msg)
                 break
 
 
-
+        await Chating.msg.set()
         db.delete_from_queue(message.from_user.id) #удаляем из очереди
         #db.delete_from_queue(db.search(db.get_sex_user(message.from_user.id)[0])[0])
 
     except Exception as e:
-        print(e)
+        warning_log.warning(e)
 
 
 
 
 
-
+@dp.message_handler(content_types=types.ContentTypes.ANY)
 @dp.message_handler(state=Chating.msg)
 async def chating(message : types.Message, state: FSMContext):
     ''' Функция где и происходить общения и обмен сообщениями '''
     try:
 
+        next = KeyboardButton('➡️Следующий диалог')
+
+        back = KeyboardButton('Назад')
+
+        menu_msg_chating = ReplyKeyboardMarkup()
+
+        menu_msg_chating.add(next,back)
+
         await state.update_data(msg=message.text)
 
         user_data = await state.get_data()
 
-        if user_data['msg'] == '❌Остановить диалог':
-            await bot.send_message(message.from_user.id,'Диалог закончился!')
-            await bot.send_message(db.select_connect_with(message.from_user.id)[0],'Диалог закончился!')
-            await state.finish()
-            db.update_connect_with(None,db.select_connect_with(message.from_user.id)[0])
-            db.update_connect_with(None,message.from_user.id)
-            return
         if user_data['msg'] == '🏹Отправить ссылку на себя':
             await bot.send_message(db.select_connect_with_self(message.from_user.id)[0],'@' + message.from_user.username)
+        elif user_data['msg'] == '❌Остановить диалог':
+            await message.answer('Диалог закончился!',reply_markup=menu_msg_chating)
+            await bot.send_message(db.select_connect_with(message.from_user.id)[0],'Диалог закончился!',reply_markup=menu_msg_chating)
+            db.update_connect_with(None,db.select_connect_with(message.from_user.id)[0])
+            db.update_connect_with(None,message.from_user.id)
+        elif user_data['msg'] == '➡️Следующий диалог':
+            await chooce_sex(message,state)
+        elif user_data['msg'] == 'Назад':
+            await start(message,state)
+            await state.finish()
+
         else:
             await bot.send_message(db.select_connect_with(message.from_user.id)[0],user_data['msg']) #отправляем сообщения пользователя
+            db.log_msg(message.from_user.id,user_data['msg']) #отправка сообщений юзеров в бд
 
     except aiogram.utils.exceptions.ChatIdIsEmpty:
-        print('Chat Id is Empty!')
-        await state.finish()
-
+        pass
     except aiogram.utils.exceptions.BotBlocked:
         await message.answer('Пользователь вышел из чат бота!')
-    db.log_msg(message.from_user.id,user_data['msg']) #отправка сообщений юзеров в бд
+        await state.finish()
+    except Exception as e:
+        warning_log.warning(e)
+
 
 
 
@@ -189,11 +219,21 @@ async def back(message : types.Message, state: FSMContext):
     await start(message,state)
 
 
+#админка
+@dp.message_handler(lambda message: message.text.startswith('/sendmsg_admin'),state='*')
+async def admin_send_msg(message : types.Message):
+    if message.from_user.id in config.ADMIN_LIST:
+        msg = message.text.split(',')
+        await bot.send_message(int(msg[1]),'Cообщение от админа:\n'  + msg[2])
+    else:
+        await message.answer('Отказано в доступе')
+
 #хендлер который срабатывает при непредсказуемом запросе юзера
 @dp.message_handler()
 async def end(message : types.Message):
 	'''Функция непредсказумогого ответа'''
 	await message.answer('Я не знаю, что с этим делать 😲\nЯ просто напомню, что есть команда /start и /help')
 
+
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+    executor.start_polling(dp, skip_updates=True,)
