@@ -1,4 +1,4 @@
-import logging
+маыпуекпиуаврвртврпаврапоаолаоапоапimport logging
 import asyncio
 
 #aiogram и всё утилиты для коректной работы с Telegram API
@@ -14,8 +14,10 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 import aiogram.utils.exceptions
+from aiogram.types.message import ContentTypes
 
 import sqlite3
+import string
 
 #конфиг с настройками
 import config
@@ -41,10 +43,20 @@ fh.setFormatter(formatter)
 
 warning_log.addHandler(fh)
 
+#функция рандомайзера для названий файлов фотографий юзеров
+SYMBOLS = string.ascii_uppercase + string.ascii_lowercase + string.digits
+def random_name():
+    final_password = ''
+    for el in range(16):
+        final_password += random.choice(SYMBOLS)
+
+    return final_password
+
 
 #хендлер команды /start
 @dp.message_handler(commands=['start'],state='*')
 async def start(message : types.Message, state: FSMContext):
+
     await state.finish()
 
     button_search = KeyboardButton('Начать поиск🔍')
@@ -57,13 +69,14 @@ async def start(message : types.Message, state: FSMContext):
 
     mark_menu.add(button_search,button_info_project,rules)
 
-    await bot.send_message(message.chat.id,'Привет!\n\nЭто Гомельский Анонимный чат для пожилых кролов....\nкхм шучу\n\n',reply_markup=mark_menu)
+    await bot.send_message(message.chat.id,'👋 Привет!\n\nЯ Chatium, бот для анонимного общения\nИ чего ты ждёшь,давай начнём!\n\nТыкай на кнопки внизу, а там разберёмся',reply_markup=mark_menu)
 
 
 @dp.message_handler(lambda message : message.text == 'О проекте🧑‍💻' or message.text == 'Все ссылки на нас' or message.text == '[ Для разработчиков ]',state='*')
 async def about_project(message : types.Message):
     if message.text == 'О проекте🧑‍💻':
         links = KeyboardButton('Все ссылки на нас')
+        print(dir(message.text))
 
         for_developers = KeyboardButton('[ Для разработчиков ]')
 
@@ -83,7 +96,7 @@ async def about_project(message : types.Message):
 @dp.message_handler(commands=['rules'],state='*')
 @dp.message_handler(lambda message : message.text == 'Правила📖')
 async def rules(message : types.Message):
-    await message.answer('''📌Правила общения в @GomelAnonymChatBot\n1. Любые упоминания психоактивных веществ. (наркотиков)\n2. Детская порнография. ("ЦП")\n3. Мошенничество. (Scam)\n4. Любая реклама, спам.\n5. Продажи чего либо. (например - продажа интимных фотографий, видео)\n6. Любые действия, нарушающие правила Telegram.\n7. Оскорбительное поведение.\n8. Обмен, распространение любых 18+ материалов\n\n❌- За нарушение правил - блокировка аккаунта.''')
+    await message.answer('''📌Правила общения в @Chatium_Bot\n1. Любые упоминания психоактивных веществ. (наркотиков)\n2. Детская порнография. ("ЦП")\n3. Мошенничество. (Scam)\n4. Любая реклама, спам.\n5. Продажи чего либо. (например - продажа интимных фотографий, видео)\n6. Любые действия, нарушающие правила Telegram.\n7. Оскорбительное поведение.\n8. Обмен, распространение любых 18+ материалов\n\n''')
 
 @dp.message_handler(lambda message: message.text == 'Начать поиск🔍',state='*')
 async def search(message : types.Message):
@@ -161,13 +174,10 @@ async def chooce_sex(message : types.Message, state: FSMContext):
         warning_log.warning(e)
 
 
-
-
-
-@dp.message_handler(content_types=types.ContentTypes.ANY)
+@dp.message_handler(content_types=ContentTypes.TEXT)
 @dp.message_handler(state=Chating.msg)
 async def chating(message : types.Message, state: FSMContext):
-    ''' Функция где и происходить общения и обмен сообщениями '''
+    ''' Функция где и происходить общения и обмен ТЕКСТОВЫМИ сообщениями '''
     try:
 
         next = KeyboardButton('➡️Следующий диалог')
@@ -200,12 +210,23 @@ async def chating(message : types.Message, state: FSMContext):
             db.log_msg(message.from_user.id,user_data['msg']) #отправка сообщений юзеров в бд
 
     except aiogram.utils.exceptions.ChatIdIsEmpty:
-        pass
+        await state.finish()
+        await start(message,state)
     except aiogram.utils.exceptions.BotBlocked:
         await message.answer('Пользователь вышел из чат бота!')
         await state.finish()
+        await start(message,state)
     except Exception as e:
         warning_log.warning(e)
+
+@dp.message_handler(content_types=ContentTypes.PHOTO,state=Chating.msg)
+async def chating_photo(message : types.Message, state: FSMContext):
+    try:
+        await message.photo[-1].download('photo_user/' + str(message.from_user.id) + '.jpg')
+        with open('photo_user/' + str(message.from_user.id) + '.jpg','rb') as photo:
+            await bot.send_photo(db.select_connect_with(message.from_user.id)[0],photo)
+    except:
+        pass
 
 
 
