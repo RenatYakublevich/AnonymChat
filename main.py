@@ -1,4 +1,4 @@
-маыпуекпиуаврвртврпаврапоаолаоапоапimport logging
+import logging
 import asyncio
 
 #aiogram и всё утилиты для коректной работы с Telegram API
