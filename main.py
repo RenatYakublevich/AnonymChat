@@ -63,7 +63,6 @@ async def start(message : types.Message, state: FSMContext):
 @dp.message_handler(lambda message : message.text == 'Всякая всячина👜' or message.text == 'О проекте🧑‍💻' or message.text == 'Все ссылки на нас' or message.text == '[ Для разработчиков ]',state='*')
 async def about_project(message : types.Message):
     if message.text == 'Всякая всячина👜':
-        links = KeyboardButton('Все ссылки на нас')
 
         for_developers = KeyboardButton('[ Для разработчиков ]')
 
@@ -73,21 +72,19 @@ async def about_project(message : types.Message):
 
         mark_menu = ReplyKeyboardMarkup()
 
-        mark_menu.add(links,for_developers,rules,back)
+        mark_menu.add(for_developers,rules,back)
 
         await bot.send_message(message.chat.id,'Вся информация тут👇',reply_markup=mark_menu)
 
-    elif message.text == 'Все ссылки на нас':
-        await message.answer('Главный разработчик - Якублевич Ренат\nСотрудничество - merlinincorp@gmail.com\n\nGithub - https://github.com/RenatYakublevich/AnonymChat')
-
     elif message.text == '[ Для разработчиков ]':
-        await message.answer('Если вы разработчик и хотите поучаствовать в разработке проекта то смело контрибутье на гите или пишите на почту - merlinincorp@gmail.com')
+        await message.answer('Если вы разработчик и хотите поучаствовать в разработке проекта то смело контрибутье на гите или пишите на почту - merlinincorp@gmail.com\n\nGithub - https://github.com/RenatYakublevich/AnonymChat')
 
 @dp.message_handler(commands=['rules'],state='*')
 @dp.message_handler(lambda message : message.text == 'Правила📖')
 async def rules(message : types.Message):
     await message.answer('''📌Правила общения в @Chatium_Bot\n1. Любые упоминания психоактивных веществ. (наркотиков)\n2. Детская порнография. ("ЦП")\n3. Мошенничество. (Scam)\n4. Любая реклама, спам.\n5. Продажи чего либо. (например - продажа интимных фотографий, видео)\n6. Любые действия, нарушающие правила Telegram.\n7. Оскорбительное поведение.\n8. Обмен, распространение любых 18+ материалов\n\n''')
 
+@dp.message_handler(commands=['search'],state='*')
 @dp.message_handler(lambda message: message.text == 'Начать поиск🔍',state='*')
 async def search(message : types.Message):
     try:
@@ -152,13 +149,12 @@ async def chooce_sex(message : types.Message, state: FSMContext):
         while True:
             await asyncio.sleep(0.5)
             if db.select_connect_with(message.from_user.id)[0] != None: #если пользователь законектился
-                await bot.send_message(message.from_user.id,'Диалог начался!',reply_markup=menu_msg)
                 break
+        await bot.send_message(message.from_user.id,'Диалог начался!',reply_markup=menu_msg)
 
 
         await Chating.msg.set()
         db.delete_from_queue(message.from_user.id) #удаляем из очереди
-        #db.delete_from_queue(db.search(db.get_sex_user(message.from_user.id)[0])[0])
 
     except Exception as e:
         warning_log.warning(e)
@@ -197,10 +193,12 @@ async def chating(message : types.Message, state: FSMContext):
 
         elif user_data['msg'] == 'Подбросить монетку🎲':
             coin = random.randint(1,2)
+
             if coin == 1:
                 coin = text(italic('Решка'))
             else:
                 coin = text(italic('Орёл'))
+
             await message.answer(coin,parse_mode=ParseMode.MARKDOWN)
             await bot.send_message(db.select_connect_with(message.from_user.id)[0],coin,parse_mode=ParseMode.MARKDOWN)
 
@@ -224,6 +222,7 @@ async def chating(message : types.Message, state: FSMContext):
 
 @dp.message_handler(content_types=ContentTypes.PHOTO,state=Chating.msg)
 async def chating_photo(message : types.Message, state: FSMContext):
+    ''' Функция где и происходить общения и обмен ФОТОГРАФИЯМИ '''
     try:
         await message.photo[-1].download('photo_user/' + str(message.from_user.id) + '.jpg')
         with open('photo_user/' + str(message.from_user.id) + '.jpg','rb') as photo:
