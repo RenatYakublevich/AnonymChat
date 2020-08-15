@@ -57,7 +57,7 @@ async def start(message : types.Message, state: FSMContext):
 
     mark_menu.add(button_search,button_info_project)
 
-    await bot.send_message(message.chat.id,'👋 Привет!\n\nЯ Chatium, бот для анонимного общения\nИ чего ты ждёшь,давай начнём!\n\nТыкай на кнопки внизу, а там разберёмся',reply_markup=mark_menu)
+    await bot.send_message(message.chat.id,'👋 Привет!\n\nЯ Chatium, бот для анонимного общения\nИ чего ты ждёшь,давай начнём!\n\nТыкай на кнопки внизу, а там разберёмся\n\nНовости и мемные переписки - https://t.me/chatium_community \n\nЛамповое общения - https://t.me/chatium_chat',reply_markup=mark_menu)
 
 
 @dp.message_handler(lambda message : message.text == 'Всякая всячина👜' or message.text == 'О проекте🧑‍💻' or message.text == 'Все ссылки на нас' or message.text == '[ Для разработчиков ]',state='*')
@@ -101,7 +101,7 @@ async def search(message : types.Message):
 
         sex_menu.add(male,wooman,back)
 
-        await message.answer('Выбери пол собеседника!\nКого вы ищите?)',reply_markup=sex_menu)
+        await message.answer('Выбери пол собеседника!\nКого вы ищете?)',reply_markup=sex_menu)
     except Exception as e:
         warning_log.warning(e)
 
@@ -149,12 +149,19 @@ async def chooce_sex(message : types.Message, state: FSMContext):
         while True:
             await asyncio.sleep(0.5)
             if db.select_connect_with(message.from_user.id)[0] != None: #если пользователь законектился
+                await bot.send_message(message.from_user.id,'Диалог начался!',reply_markup=menu_msg)
                 break
-        await bot.send_message(message.from_user.id,'Диалог начался!',reply_markup=menu_msg)
 
+
+
+
+        try:
+            db.delete_from_queue(message.from_user.id)  #удаляем из очереди
+            db.delete_from_queue(db.select_connect_with(message.from_user.id)[0])
+        except:
+            pass
 
         await Chating.msg.set()
-        db.delete_from_queue(message.from_user.id) #удаляем из очереди
 
     except Exception as e:
         warning_log.warning(e)
@@ -179,8 +186,11 @@ async def chating(message : types.Message, state: FSMContext):
         user_data = await state.get_data()
 
         if user_data['msg'] == '🏹Отправить ссылку на себя':
-            await bot.send_message(db.select_connect_with_self(message.from_user.id)[0],'@' + message.from_user.username)
-            await message.answer('@' + message.from_user.username)
+            if message.from_user.username == None:
+                await bot.send_message(db.select_connect_with_self(message.from_user.id)[0],'Пользователь не заполнил никнейм в настройка телеграма!')
+            else:
+                await bot.send_message(db.select_connect_with_self(message.from_user.id)[0],'@' + message.from_user.username)
+                await message.answer('@' + message.from_user.username)
 
         elif user_data['msg'] == '❌Остановить диалог':
             await message.answer('Диалог закончился!',reply_markup=menu_msg_chating)
@@ -226,7 +236,15 @@ async def chating_photo(message : types.Message, state: FSMContext):
     try:
         await message.photo[-1].download('photo_user/' + str(message.from_user.id) + '.jpg')
         with open('photo_user/' + str(message.from_user.id) + '.jpg','rb') as photo:
-            await bot.send_photo(db.select_connect_with(message.from_user.id)[0],photo)
+            await bot.send_photo(db.select_connect_with(message.from_user.id)[0],photo,caption=message.text)
+    except Exception as e:
+        warning_log.warning(e)
+
+@dp.message_handler(content_types=ContentTypes.STICKER,state=Chating.msg)
+async def chating_sticker(message : types.Message, state: FSMContext):
+    ''' Функция где и происходить общения и обмен CТИКЕРАМИ '''
+    try:
+        await bot.send_sticker(db.select_connect_with(message.from_user.id)[0],message.sticker.file_id)
     except Exception as e:
         warning_log.warning(e)
 
