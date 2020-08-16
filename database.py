@@ -81,3 +81,25 @@ class dbworker:
         with self.connection:
             result = self.cursor.execute('SELECT COUNT(*) FROM `users`').fetchone()
             return result[0]
+
+    def add_count_msg(self,telegram_id):
+        ''' добавления кол-ва сообщений пользователю'''
+        with self.connection:
+            self.cursor.execute('UPDATE `users` SET `all_msg` = `all_msg` + 1 WHERE `telegram_id` = ?',(telegram_id,))
+
+    def top_rating(self):
+        '''вывод топа по рейтингу'''
+        with self.connection:
+            return self.cursor.execute('SELECT `telegram_id` FROM `users` ORDER BY `all_msg` DESC LIMIT 5').fetchall()
+
+    def get_name_user(self,telegram_id):
+        ''' Получить информацию о поле юзера по его айдишнику '''
+        with self.connection:
+            result = self.cursor.execute('SELECT `telegram_username` FROM `users` WHERE `telegram_id` = ?',(telegram_id,)).fetchone()
+            return result[0]
+
+    def get_count_all_msg(self,telegram_id):
+        '''вывод количества сообщений у юзера'''
+        with self.connection:
+            result = self.cursor.execute('SELECT `all_msg` FROM `users` WHERE `telegram_id` = ?',(telegram_id,)).fetchone()
+            return result[0]

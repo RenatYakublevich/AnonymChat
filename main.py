@@ -53,9 +53,11 @@ async def start(message : types.Message, state: FSMContext):
 
     button_info_project = KeyboardButton('Всякая всячина👜')
 
+    ranked = KeyboardButton('Рейтинг⭐️')
+
     mark_menu = ReplyKeyboardMarkup()
 
-    mark_menu.add(button_search,button_info_project)
+    mark_menu.add(button_search,button_info_project,ranked)
 
     await bot.send_message(message.chat.id,'👋 Привет!\n\nЯ Chatium, бот для анонимного общения\nИ чего ты ждёшь,давай начнём!\n\nТыкай на кнопки внизу, а там разберёмся\n\nНовости и мемные переписки - https://t.me/chatium_community \n\nЛамповое общения - https://t.me/chatium_chat',reply_markup=mark_menu)
 
@@ -105,6 +107,26 @@ async def search(message : types.Message):
     except Exception as e:
         warning_log.warning(e)
 
+
+@dp.message_handler(lambda message : message.text == 'Рейтинг⭐️')
+async def ranked(message : types.Message, state: FSMContext):
+    ''' Функция для вывода рейтинга '''
+    try:
+        final_top = ''
+        top_count = 0
+        for i in db.top_rating():
+            for d in i:
+                top_count +=1
+                if db.get_name_user(d) == None:
+                    rofl_list = ['\nебааа#ь ты жёсткий😳','\nвасап👋','\nбро полегче там😮','\nгений🧠','\nреспект🤟']
+                    final_top = final_top + str(top_count) + 'место - :(нету ника' + ' - ' + str(db.get_count_all_msg(d)) + ' cообщений' + rofl_list[top_count-1] + '\n'
+                else:
+                    rofl_list = ['\nебааа#ь ты жёсткий😳','\nвасап👋','\nбро полегче там😮','\nгений🧠','\nреспект🤟']
+                    final_top = final_top + str(top_count) + 'место - @' + str(db.get_name_user(d)) + ' - ' + str(db.get_count_all_msg(d)) + ' cообщений' + rofl_list[top_count-1]  + '\n'
+        await message.answer(f'Рейтинг самых п#здатых в этом чат боте\nОчки рейтинга получаются с помощью активностей в боте😎\n\n{final_top}')
+    except Exception as e:
+        warning_log.warning(e)
+
 #класс машины состояний
 class Chating(StatesGroup):
 	msg = State()
@@ -149,10 +171,9 @@ async def chooce_sex(message : types.Message, state: FSMContext):
         while True:
             await asyncio.sleep(0.5)
             if db.select_connect_with(message.from_user.id)[0] != None: #если пользователь законектился
-                await bot.send_message(message.from_user.id,'Диалог начался!',reply_markup=menu_msg)
+
+
                 break
-
-
 
 
         try:
@@ -163,6 +184,10 @@ async def chooce_sex(message : types.Message, state: FSMContext):
 
         await Chating.msg.set()
 
+
+        await bot.send_message(db.select_connect_with(message.from_user.id)[0],'Диалог начался!',reply_markup=menu_msg)
+        await message.answer('Диалог начался!',reply_markup=menu_msg)
+        return
     except Exception as e:
         warning_log.warning(e)
 
@@ -187,7 +212,7 @@ async def chating(message : types.Message, state: FSMContext):
 
         if user_data['msg'] == '🏹Отправить ссылку на себя':
             if message.from_user.username == None:
-                await bot.send_message(db.select_connect_with_self(message.from_user.id)[0],'Пользователь не заполнил никнейм в настройка телеграма!')
+                await bot.send_message(db.select_connect_with_self(message.from_user.id)[0],'Пользователь не заполнил никнейм в настройках телеграма!')
             else:
                 await bot.send_message(db.select_connect_with_self(message.from_user.id)[0],'@' + message.from_user.username)
                 await message.answer('@' + message.from_user.username)
@@ -219,6 +244,7 @@ async def chating(message : types.Message, state: FSMContext):
         else:
             await bot.send_message(db.select_connect_with(message.from_user.id)[0],user_data['msg']) #отправляем сообщения пользователя
             db.log_msg(message.from_user.id,user_data['msg']) #отправка сообщений юзеров в бд
+            db.add_count_msg(message.from_user.id) #добавление кол-ва сообщений в бд для рейтинга
 
     except aiogram.utils.exceptions.ChatIdIsEmpty:
         await state.finish()
@@ -258,7 +284,6 @@ async def back(message : types.Message, state: FSMContext):
     ''' Функция для команды back '''
     await state.finish()
     await start(message,state)
-
 
 #админка
 @dp.message_handler(lambda message: message.text.startswith('/sendmsg_admin'),state='*')
