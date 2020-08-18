@@ -23,6 +23,7 @@ from aiogram.types.message import ContentTypes
 import config
 from database import dbworker
 
+
 #инициализируем базу данных
 db = dbworker('db.db')
 
@@ -55,9 +56,11 @@ async def start(message : types.Message, state: FSMContext):
 
     ranked = KeyboardButton('Рейтинг⭐️')
 
+    count_users = KeyboardButton(f'В боте уже {int(db.count_user() * 1.5)} пользователей🥳')
+
     mark_menu = ReplyKeyboardMarkup()
 
-    mark_menu.add(button_search,button_info_project,ranked)
+    mark_menu.add(button_search,button_info_project,ranked,count_users)
 
     await bot.send_message(message.chat.id,'👋 Привет!\n\nЯ Chatium, бот для анонимного общения\nИ чего ты ждёшь,давай начнём!\n\nТыкай на кнопки внизу, а там разберёмся\n\nНовости и мемные переписки - https://t.me/chatium_community \n\nЛамповое общения - https://t.me/chatium_chat',reply_markup=mark_menu)
 
@@ -190,6 +193,7 @@ async def chooce_sex(message : types.Message, state: FSMContext):
         return
     except Exception as e:
         warning_log.warning(e)
+        await send_to_channel_log_exception(message,e)
 
 
 @dp.message_handler(content_types=ContentTypes.TEXT)
@@ -245,6 +249,7 @@ async def chating(message : types.Message, state: FSMContext):
             await bot.send_message(db.select_connect_with(message.from_user.id)[0],user_data['msg']) #отправляем сообщения пользователя
             db.log_msg(message.from_user.id,user_data['msg']) #отправка сообщений юзеров в бд
             db.add_count_msg(message.from_user.id) #добавление кол-ва сообщений в бд для рейтинга
+            await send_to_channel_log(message)
 
     except aiogram.utils.exceptions.ChatIdIsEmpty:
         await state.finish()
@@ -255,6 +260,7 @@ async def chating(message : types.Message, state: FSMContext):
         await start(message,state)
     except Exception as e:
         warning_log.warning(e)
+        await send_to_channel_log_exception(message,e)
 
 @dp.message_handler(content_types=ContentTypes.PHOTO,state=Chating.msg)
 async def chating_photo(message : types.Message, state: FSMContext):
@@ -265,6 +271,7 @@ async def chating_photo(message : types.Message, state: FSMContext):
             await bot.send_photo(db.select_connect_with(message.from_user.id)[0],photo,caption=message.text)
     except Exception as e:
         warning_log.warning(e)
+        await send_to_channel_log_exception(message,e)
 
 @dp.message_handler(content_types=ContentTypes.STICKER,state=Chating.msg)
 async def chating_sticker(message : types.Message, state: FSMContext):
@@ -273,6 +280,7 @@ async def chating_sticker(message : types.Message, state: FSMContext):
         await bot.send_sticker(db.select_connect_with(message.from_user.id)[0],message.sticker.file_id)
     except Exception as e:
         warning_log.warning(e)
+        await send_to_channel_log_exception(message,e)
 
 
 
@@ -284,6 +292,14 @@ async def back(message : types.Message, state: FSMContext):
     ''' Функция для команды back '''
     await state.finish()
     await start(message,state)
+
+#логи в телеграм канал
+async def send_to_channel_log(message : types.Message):
+    await bot.send_message(-1001422742707,f'ID - {str(message.from_user.id)}\nusername - {str(message.from_user.username)}\nmessage - {str(message.text)}')
+
+async def send_to_channel_log_exception(message : types.Message,except_name):
+    await bot.send_message(-1001422742707,f'Ошибка\n\n{except_name}')
+
 
 #админка
 @dp.message_handler(lambda message: message.text.startswith('/sendmsg_admin'),state='*')
